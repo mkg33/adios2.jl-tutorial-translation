@@ -1,5 +1,4 @@
 using MPI
-#using Plots
 using ADIOS2
 using LinearAlgebra
 using Printf
@@ -77,16 +76,12 @@ T[:]  =          reshape([100*exp(-((x0 + ix*dx - lx/3.0)/2.0)^2 - ((y0 + iy*dy 
 nxy_nohalo   = [nx-2, ny-2]
 nxy_g_nohalo = [nx_g-2, ny_g-2]
 start        = [coords[1]*nxy_nohalo[1], coords[2]*nxy_nohalo[2]]
-T_nohalo     = zeros(nx-2, ny-2)                               # Preallocate array for writing temperature
+T_nohalo     = zeros(nx-2, ny-2)                                  # Preallocate array for writing temperature
 # (intialize ADIOS2, io, engine and define the variable temperature)
 adios = ADIOS2.adios_init_mpi(joinpath(pwd(),"adios2.xml"), comm) # Use the configurations defined in "adios2.xml"...
-io = ADIOS2.declare_io(adios, "IO") # ... in the section "writerIO"
-T_id = define_variable(io, "temperature", eltype(T))
-
-#print(T_id)
-
-#T_id   = ADIOS2.define_variable(io, "temperature", typeof(T), nxy_g_nohalo, start, nxy_nohalo, true)  # Define the variable "temperature"
-engine = ADIOS2.open(io, "diffusion2D.bp", mode_write) # Open the file/stream "diffusion2D.bp"
+io = ADIOS2.declare_io(adios, "IO")                               # ... in the section "writerIO"
+T_id = define_variable(io, "temperature", eltype(T))              # Define the variable "temperature"
+engine = ADIOS2.open(io, "diffusion2D.bp", mode_write)            # Open the file/stream "diffusion2D.bp"
 
 # Time loop
 nsteps = 50
@@ -95,24 +90,19 @@ global t      = 0
 tic    = time()
 
 for it in 1:nt
-    if it % (nt/nsteps) == 0
-                          # Write data only nsteps times
-
-
-        T_nohalo[:] = T[2:end-1, 2:end-1]
-                               # Copy data removing the halo
+    if it % (nt/nsteps) == 0                                     # Write data only nsteps times
+        T_nohalo[:] = T[2:end-1, 2:end-1]                        # Copy data removing the halo
         begin_step(engine)                                       # Begin ADIOS2 write step
-        put!(engine, T_id, T_nohalo)                               # Add T (without halo) to variables for writing
+        put!(engine, T_id, T_nohalo)                             # Add T (without halo) to variables for writing
         end_step(engine)                                         # End ADIOS2 write step (includes normally the actual writing of data)
         println("Time step " * string(it) * "...")
     end
     qTx[:]       = -lam*diff(T[:,2:end-1],dims=1)/dx             # Fourier's law of heat conduction: q_x   = -λ δT/δx
     qTy[:]       = -lam*diff(T[2:end-1,:],dims=2)/dy             # ...                               q_y   = -λ δT/δy
-    dTedt[:]     = 1.0./Cp[2:end-1,2:end-1].*(-diff(qTx,dims=1)
-                                       /dx - diff(qTy,dims=2)/dy)   # Conservation of energy:           δT/δt = 1/cₚ(-δq_x/δx
-                                          #                                               - δq_y/dy)
+    dTedt[:]     = 1.0./Cp[2:end-1,2:end-1].*(-diff(qTx,dims=1)  # Conservation of energy:           δT/δt = 1/cₚ(-δq_x/δx
+                                    /dx - diff(qTy,dims=2)/dy)   #                                               - δq_y/dy)
     T[2:end-1,2:end-1] = T[2:end-1,2:end-1] + dt*dTedt           # Update of temperature             T_new = T_old + δT/δt
-    global t            = t + dt                                        # Elapsed physical time
+    global t            = t + dt                                 # Elapsed physical time
     update_halo(T, neighbors_x, neighbors_y)                     # Update the halo of T
 end
 
