@@ -1,5 +1,6 @@
 [deps]
 ADIOS2 = "e0ce9d3b-0dbd-416f-8264-ccca772f60ec"
+CUDA = "052768ef-5323-5732-b1bb-66c8b64840ba"
 Contour = "d38c429a-6771-53c6-b99e-75d170b6e991"
 GR = "28b8d3ca-fb5f-59d9-8090-bfdbd6d07a71"
 ImplicitGlobalGrid = "4d7a3746-15be-11ea-1130-334b0c4f5fa0"

@@ -2,7 +2,7 @@
 
 julia_version = "1.9.0"
 manifest_format = "2.0"
-project_hash = "cc7c310661e5f5f037aec1c2fa9851e0b4ff20c9"
+project_hash = "2fbc1dd08c11252072c8b3886cc1fb6064946de7"
 
 [[deps.ADIOS2]]
 deps = ["ADIOS2_jll", "Libdl", "MPI"]
