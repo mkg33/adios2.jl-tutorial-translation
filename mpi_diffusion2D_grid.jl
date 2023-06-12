@@ -7,6 +7,21 @@ using ImplicitGlobalGrid
 using ParallelStencil
 using CUDA
 
+const USE_GPU = true
+
+@static if USE_GPU
+    @init_parallel_stencil(CUDA, Float64, 3);
+else
+    @init_parallel_stencil(Threads, Float64, 3);
+end
+
+@parallel function diffusion2D_step!(T2, T, Ci, lam, dt, _dx, _dy)
+    @inn(T2) = @inn(T) + dt*(lam*@inn(Ci)*(@d2_xi(T)*_dx^2 + @d2_yi(T)*_dy^2));
+    return
+end
+
+function diffusion2D()
+
 @views d_xa(A) = A[2:end  , :     , :     ] .- A[1:end-1, :     , :     ];
 @views d_xi(A) = A[2:end  ,2:end-1,2:end-1] .- A[1:end-1,2:end-1,2:end-1];
 @views d_ya(A) = A[ :     ,2:end  , :     ] .- A[ :     ,1:end-1, :     ];
@@ -20,13 +35,15 @@ lx, ly     = 10.0, 10.0          # Length of computational domain in dimension x
 
 nx, ny     = 128, 128
 nt         = 10000
-me, dims   = init_global_grid(nx, ny, 0)
+me, dims, nprocs, coords, comm_cart = init_global_grid(nx, ny, 0);
 #nx_g       = dims[1]*(nx-2) + 2
 #ny_g       = dims[2]*(ny-2) + 2
 nx_v = (nx-2)*dims[1]
 ny_v = (ny-2)*dims[2]
 dx         = lx/(nx_g()-1)
 dy         = ly/(ny_g()-1)
+_dx, _dy = 1.0/dx, 1.0/dy
+
 
 T     = CUDA.zeros(Float64, nx,   ny)
 Cp    = CUDA.zeros(Float64, nx,   ny)
@@ -44,6 +61,9 @@ Cp .= cp_min .+ CuArray([5*exp(-((x_g(ix,dx,Cp)-lx/1.5))^2-((y_g(iy,dy,Cp)-ly/2)
                          5*exp(-((x_g(ix,dx,Cp)-lx/3.0))^2-((y_g(iy,dy,Cp)-ly/2))^2 for ix=1:size(T,1), iy=1:size(T,2)])
 T  .= CuArray([100*exp(-((x_g(ix,dx,T)-lx/2)/2)^2-((y_g(iy,dy,T)-ly/2)/2)^2 +
                 50*exp(-((x_g(ix,dx,T)-lx/2)/2)^2-((y_g(iy,dy,T)-ly/2)/2)^2 for ix=1:size(T,1), iy=1:size(T,2)])
+
+T2 .= T
+
 # ADIOS2
 # (size and start of the local and global problem)
 #nxy_nohalo   = [nx-2, ny-2]
@@ -71,16 +91,25 @@ for it in 1:nt
         end_step(engine)                                         # End ADIOS2 write step (includes normally the actual writing of data)
         println("Time step " * string(it) * "...")
     end
-    qx    .= -lam.*d_xi(T)./dx;             # Fourier's law of heat conduction: q_x   = -λ δT/δx
-    qy    .= -lam.*d_yi(T)./dy;               # ...                               q_y   = -λ δT/δy
-    dTedt .= 1.0./inn(Cp).*(-d_xa(qx)./dx .- d_ya(qy)./dy                                             - δq_y/dy)
-    T[2:end-1,2:end-1] = T[2:end-1,2:end-1] + dt*dTedt           # Update of temperature             T_new = T_old + δT/δt
+    #qx    .= -lam.*d_xi(T)./dx;             # Fourier's law of heat conduction: q_x   = -λ δT/δx
+    #qy    .= -lam.*d_yi(T)./dy;               # ...                               q_y   = -λ δT/δy
+    #dTedt .= 1.0./inn(Cp).*(-d_xa(qx)./dx .- d_ya(qy)./dy                                             - δq_y/dy)
+    #T[2:end-1,2:end-1] = T[2:end-1,2:end-1] + dt*dTedt           # Update of temperature             T_new = T_old + δT/δt
     global t            = t + dt                                 # Elapsed physical time
-    update_halo!(T)                     # Update the halo of T
+    #update_halo!(T)                     # Update the halo of T
+    @hide_communication (16, 2, 2) begin
+        @parallel diffusion3D_step!(T2, T, Ci, lam, dt, _dx, _dy);
+        update_halo!(T2);
+    end
 end
 
 close(engine)
+finalize_global_grid()
 
 @printf("\ntime: %.8f\n", time() - tic)
 @printf("Min. temperature: %2.2e\n", minimum(T))
 @printf("Max. temperature: %2.2e\n", maximum(T))
+
+end()
+
+diffusion2D()
