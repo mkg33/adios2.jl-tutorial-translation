@@ -3,4 +3,4 @@
 # WIP
 1. translate the notebook (working: :green_circle:)
 2. translate the diffusion file (working: :yellow_circle:)
-3. use ImplicitGlobalGrid in the tutorial (in progress)
+3. use ImplicitGlobalGrid in the tutorial (working 🟡)
