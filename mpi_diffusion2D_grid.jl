@@ -35,7 +35,7 @@ lx, ly     = 10.0, 10.0          # Length of computational domain in dimension x
 
 nx, ny     = 128, 128
 nt         = 10000
-me, dims, nprocs, coords, comm_cart = init_global_grid(nx, ny, 0);
+me, dims, nprocs, coords, comm_cart = init_global_grid(nx, ny, 1);
 #nx_g       = dims[1]*(nx-2) + 2
 #ny_g       = dims[2]*(ny-2) + 2
 nx_v = (nx-2)*dims[1]
