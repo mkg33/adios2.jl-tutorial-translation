@@ -35,8 +35,10 @@ end
 # MPI
 MPI.Init()
 nprocs      = MPI.Comm_size(MPI.COMM_WORLD)
-dims        = MPI.Dims_create!(nprocs, [0,0])
-comm        = MPI.Cart_create(MPI.COMM_WORLD, dims)
+# dims        = MPI.Dims_create!(nprocs, [0,0])
+dims = [0,0]
+MPI.Dims_create!(nprocs, dims)
+comm        = MPI.Cart_create(MPI.COMM_WORLD, dims, [0,0], 1)
 me          = MPI.Comm_rank(comm)
 coords      = MPI.Cart_coords(comm)
 neighbors_x = MPI.Cart_shift(comm, 0, 1)
